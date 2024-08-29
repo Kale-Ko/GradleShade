@@ -122,7 +122,9 @@ public class ShadedClassLoader extends ClassLoader {
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         try {
-            return getParent().loadClass(name);
+            if (getParent() != null) {
+                return getParent().loadClass(name);
+            }
         } catch (ClassNotFoundException ignored) {
         }
 
@@ -151,9 +153,11 @@ public class ShadedClassLoader extends ClassLoader {
     @Override
     protected URL findResource(String name) {
         {
-            URL resource = getParent().getResource(name);
-            if (resource != null) {
-                return resource;
+            if (getParent() != null) {
+                URL resource = getParent().getResource(name);
+                if (resource != null) {
+                    return resource;
+                }
             }
         }
 
@@ -174,9 +178,11 @@ public class ShadedClassLoader extends ClassLoader {
     @Override
     protected Enumeration<URL> findResources(String name) {
         try {
-            Enumeration<URL> resources = getParent().getResources(name);
-            if (resources != null && resources.hasMoreElements()) {
-                return resources;
+            if (getParent() != null) {
+                Enumeration<URL> resources = getParent().getResources(name);
+                if (resources != null && resources.hasMoreElements()) {
+                    return resources;
+                }
             }
         } catch (IOException ignored) {
         }

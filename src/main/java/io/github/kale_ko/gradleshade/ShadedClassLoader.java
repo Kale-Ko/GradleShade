@@ -3,11 +3,8 @@ package io.github.kale_ko.gradleshade;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
@@ -39,43 +36,19 @@ public class ShadedClassLoader extends ClassLoader {
         }
         this.cataloged = true;
 
-        Path tempDir = Files.createTempDirectory("gradleshade-");
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                Files.walkFileTree(tempDir, new FileVisitor<>() {
-                    @Override
-                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                        return FileVisitResult.CONTINUE;
-                    }
+        Path tempTempDir = Files.createTempDirectory("gradleshade-temp-");
+        Path extractDir = tempTempDir.getParent().resolve("gradleshade-" + Files.getLastModifiedTime(this.jarPath).toMillis());
+        Files.delete(tempTempDir);
 
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        Files.delete(file);
+        boolean copyNeeded = !Files.exists(extractDir);
+        if (!copyNeeded) {
+            Files.createDirectories(extractDir);
+        }
 
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                        Files.delete(dir);
-
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }, "GradleShade-ShutdownHook-" + tempDir.getFileName().toString().substring("gradleshade-".length())));
-
-        this.catalog(this.jarPath, tempDir, 0);
+        this.catalog(this.jarPath, extractDir, copyNeeded, 0);
     }
 
-    private synchronized void catalog(Path parentJar, Path tempDir, int depth) throws IOException {
+    private synchronized void catalog(Path parentJar, Path tempDir, boolean copyNeeded, int depth) throws IOException {
         List<Path> jars = new ArrayList<>();
 
         try (JarInputStream jarInputStream = new JarInputStream(new BufferedInputStream(Files.newInputStream(parentJar)))) {
@@ -91,11 +64,13 @@ public class ShadedClassLoader extends ClassLoader {
                         jars.add(file);
                     }
 
-                    try (OutputStream fileOutputStream = new BufferedOutputStream(Files.newOutputStream(file))) {
-                        int read;
-                        byte[] buf = new byte[4096];
-                        while ((read = jarInputStream.read(buf)) != -1) {
-                            fileOutputStream.write(buf, 0, read);
+                    if (copyNeeded) {
+                        try (OutputStream fileOutputStream = new BufferedOutputStream(Files.newOutputStream(file))) {
+                            int read;
+                            byte[] buf = new byte[4096];
+                            while ((read = jarInputStream.read(buf)) != -1) {
+                                fileOutputStream.write(buf, 0, read);
+                            }
                         }
                     }
 
@@ -114,7 +89,7 @@ public class ShadedClassLoader extends ClassLoader {
 
         if (CATALOG_RECURSIVE || depth == 0) {
             for (Path jar : jars) {
-                this.catalog(jar, tempDir, depth + 1);
+                this.catalog(jar, tempDir, copyNeeded, depth + 1);
             }
         }
     }

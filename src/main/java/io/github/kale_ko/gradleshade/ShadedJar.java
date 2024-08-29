@@ -91,7 +91,7 @@ public abstract class ShadedJar extends Jar {
     private @NotNull FileTree classFiles() {
         FileTree tree = this.getServices().get(FileCollectionFactory.class).treeOf(List.of());
 
-        for (String clazz : List.of("ShadedMain.class", "ShadedClassLoader.class", "ShadedClassLoader$1.class")) {
+        for (String clazz : List.of("ShadedMain.class", "ShadedClassLoader.class")) {
             tree = tree.plus(this.classFile(clazz));
         }
 

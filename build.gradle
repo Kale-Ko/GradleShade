@@ -1,0 +1,78 @@
+plugins {
+    id "java"
+    id "java-gradle-plugin"
+    id "maven-publish"
+}
+
+group = "io.github.kale_ko"
+version = project_version
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    gradleApi()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(java_version)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}
+
+gradlePlugin {
+    website = "https://github.com/Kale-Ko/GradleShade/"
+    vcsUrl = "https://github.com/Kale-Ko/GradleShade.git"
+
+    plugins {
+        gradleshade {
+            id = "io.github.kale_ko.gradleshade"
+            displayName = "GradleShade"
+
+            description = "A plugin that automatically adds all dependencies to a jar and loads them for use"
+            tags.addAll("jar", "java", "kotlin", "shade", "shaded", "shaded-jar", "fat", "fat-jar")
+
+            implementationClass = "io.github.kale_ko.gradleshade.GradleShadePlugin"
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "Kales-Maven-Snapshot"
+            url = "https://maven.kaleko.dev/public-snapshot/"
+
+            credentials {
+                username = System.getenv("MAVEN_USER")
+                password = System.getenv("MAVEN_TOKEN")
+            }
+        }
+
+        if ("release".equalsIgnoreCase(System.getenv("MAVEN_TYPE"))) {
+            maven {
+                name = "Kales-Maven-Release"
+                url = "https://maven.kaleko.dev/public-release/"
+
+                credentials {
+                    username = System.getenv("MAVEN_USER")
+                    password = System.getenv("MAVEN_TOKEN")
+                }
+            }
+            maven {
+                name = "GitHub-Packages-Release"
+                url = "https://maven.pkg.github.com/Kale-Ko/GradleShade/"
+
+                credentials {
+                    username = System.getenv("GH_PACKAGES_USER")
+                    password = System.getenv("GH_PACKAGES_TOKEN")
+                }
+            }
+        }
+    }
+}

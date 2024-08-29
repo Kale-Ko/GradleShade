@@ -12,7 +12,7 @@ public class GradleShadePlugin implements Plugin<Project> {
         if (project.getPluginManager().hasPlugin("java")) {
             project.getPluginManager().apply(JavaPlugin.class);
         } else {
-            throw new RuntimeException("Plugin 'java' must be applied before 'gradleshade'");
+            throw new RuntimeException("Plugin \"java\" must be applied before \"gradleshade\"");
         }
 
         TaskProvider<ShadedJar> shadedJarTaskProvider = project.getTasks().register("shadedJar", ShadedJar.class);

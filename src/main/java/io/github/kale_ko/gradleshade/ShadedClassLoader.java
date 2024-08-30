@@ -40,22 +40,25 @@ public class ShadedClassLoader extends ClassLoader {
         Path extractDir = tempTempDir.getParent().resolve("gradleshade-" + Files.getLastModifiedTime(this.jarPath).toMillis());
         Files.delete(tempTempDir);
 
-        boolean copyNeeded = !Files.exists(extractDir);
-        if (!copyNeeded) {
-            Files.createDirectories(extractDir);
-        }
+        if (!Files.exists(extractDir)) {
+            this.catalog(this.jarPath, extractDir, true, 0);
 
-        this.catalog(this.jarPath, extractDir, copyNeeded, 0);
+            this.saveCatalog(extractDir);
+        } else {
+            this.loadCatalog(extractDir);
+        }
     }
 
-    private synchronized void catalog(Path parentJar, Path tempDir, boolean copyNeeded, int depth) throws IOException {
+    private synchronized void catalog(Path parentJar, Path extractDir, boolean copyNeeded, int depth) throws IOException {
         List<Path> jars = new ArrayList<>();
+
+        Path localExtractDir = extractDir.resolve(parentJar.getFileName());
 
         try (JarInputStream jarInputStream = new JarInputStream(new BufferedInputStream(Files.newInputStream(parentJar)))) {
             JarEntry jarEntry;
             while ((jarEntry = jarInputStream.getNextJarEntry()) != null) {
                 if (!jarEntry.isDirectory()) {
-                    Path file = tempDir.resolve(parentJar.getFileName()).resolve(jarEntry.getName());
+                    Path file = localExtractDir.resolve(jarEntry.getName());
                     if (!Files.exists(file.getParent())) {
                         Files.createDirectories(file.getParent());
                     }
@@ -89,7 +92,75 @@ public class ShadedClassLoader extends ClassLoader {
 
         if (CATALOG_RECURSIVE || depth == 0) {
             for (Path jar : jars) {
-                this.catalog(jar, tempDir, copyNeeded, depth + 1);
+                this.catalog(jar, extractDir, copyNeeded, depth + 1);
+            }
+        }
+    }
+
+    private synchronized void loadCatalog(Path extractDir) throws IOException {
+        Path resourceSaveFile = extractDir.resolve("resources.map");
+        Path extractedResourceSaveFile = extractDir.resolve("extractedResources.map");
+
+        try (InputStream resourceInputStream = new BufferedInputStream(Files.newInputStream(resourceSaveFile)); DataInputStream resourceDataInputStream = new DataInputStream(resourceInputStream)) {
+            int entryCount = resourceDataInputStream.readInt();
+            for (int i = 0; i < entryCount; i++) {
+                String key = resourceDataInputStream.readUTF();
+
+                List<Path> subEntries = new ArrayList<>();
+                this.resourceCatalog.put(key, subEntries);
+
+                int subEntryCount = resourceDataInputStream.readInt();
+                for (int i2 = 0; i2 < subEntryCount; i2++) {
+                    String subEntry = resourceDataInputStream.readUTF();
+
+                    subEntries.add(Path.of(subEntry));
+                }
+            }
+        }
+        try (InputStream extractedResourceInputStream = new BufferedInputStream(Files.newInputStream(extractedResourceSaveFile)); DataInputStream extractedResourceDataInputStream = new DataInputStream(extractedResourceInputStream)) {
+            int entryCount = extractedResourceDataInputStream.readInt();
+            for (int i = 0; i < entryCount; i++) {
+                String key = extractedResourceDataInputStream.readUTF();
+
+                List<Path> subEntries = new ArrayList<>();
+                this.extractedResourceCatalog.put(key, subEntries);
+
+                int subEntryCount = extractedResourceDataInputStream.readInt();
+                for (int i2 = 0; i2 < subEntryCount; i2++) {
+                    String subEntry = extractedResourceDataInputStream.readUTF();
+
+                    subEntries.add(Path.of(subEntry));
+                }
+            }
+        }
+    }
+
+    private synchronized void saveCatalog(Path extractDir) throws IOException {
+        Path resourceSaveFile = extractDir.resolve("resources.map");
+        Path extractedResourceSaveFile = extractDir.resolve("extractedResources.map");
+
+        try (OutputStream resourceOutputStream = new BufferedOutputStream(Files.newOutputStream(resourceSaveFile)); DataOutputStream resourceDataOutputStream = new DataOutputStream(resourceOutputStream)) {
+            resourceDataOutputStream.writeInt(this.resourceCatalog.size());
+
+            for (Map.Entry<String, List<Path>> entry : this.resourceCatalog.entrySet()) {
+                resourceDataOutputStream.writeUTF(entry.getKey());
+
+                resourceDataOutputStream.writeInt(entry.getValue().size());
+                for (Path subEntry : entry.getValue()) {
+                    resourceDataOutputStream.writeUTF(subEntry.toString());
+                }
+            }
+        }
+        try (OutputStream extractedResourceOutputStream = new BufferedOutputStream(Files.newOutputStream(extractedResourceSaveFile)); DataOutputStream extractedResourceDataOutputStream = new DataOutputStream(extractedResourceOutputStream)) {
+            extractedResourceDataOutputStream.writeInt(this.extractedResourceCatalog.size());
+
+            for (Map.Entry<String, List<Path>> entry : this.extractedResourceCatalog.entrySet()) {
+                extractedResourceDataOutputStream.writeUTF(entry.getKey());
+
+                extractedResourceDataOutputStream.writeInt(entry.getValue().size());
+                for (Path subEntry : entry.getValue()) {
+                    extractedResourceDataOutputStream.writeUTF(subEntry.toString());
+                }
             }
         }
     }

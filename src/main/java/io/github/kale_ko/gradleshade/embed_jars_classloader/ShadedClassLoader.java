@@ -14,15 +14,18 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class ShadedClassLoader extends ClassLoader {
-    public static boolean FIND_RESOURCES_RETURN_DIRECT = System.getProperty("gradleshade.resourceReturnDirect") != null ? Boolean.parseBoolean(System.getProperty("gradleshade.resourceReturnDirect")) : false;
-    public static boolean CATALOG_RECURSIVE = System.getProperty("gradleshade.recursive") != null ? Boolean.parseBoolean(System.getProperty("gradleshade.recursive")) : true;
-
     protected final @NotNull Path jarPath;
 
-    public ShadedClassLoader(@NotNull Path jarPath) {
+    protected final boolean recursiveExtract;
+    protected final boolean returnDirectUri;
+
+    public ShadedClassLoader(@NotNull Path jarPath, boolean recursiveExtract, boolean returnDirectUri) {
         super(null);
 
         this.jarPath = jarPath;
+
+        this.recursiveExtract = recursiveExtract;
+        this.returnDirectUri = returnDirectUri;
     }
 
     public @NotNull Path getJarPath() {
@@ -93,7 +96,7 @@ public class ShadedClassLoader extends ClassLoader {
             }
         }
 
-        if (CATALOG_RECURSIVE || depth == 0) {
+        if (this.recursiveExtract || depth == 0) {
             for (Path jar : jars) {
                 this.catalog(jar, extractDir, copyNeeded, depth + 1);
             }
@@ -209,7 +212,7 @@ public class ShadedClassLoader extends ClassLoader {
             }
         }
 
-        if (!FIND_RESOURCES_RETURN_DIRECT) {
+        if (!this.returnDirectUri) {
             if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
                 return null;
             }
@@ -248,7 +251,7 @@ public class ShadedClassLoader extends ClassLoader {
         } catch (IOException ignored) {
         }
 
-        if (!FIND_RESOURCES_RETURN_DIRECT) {
+        if (!this.returnDirectUri) {
             if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
                 return Collections.emptyEnumeration();
             }

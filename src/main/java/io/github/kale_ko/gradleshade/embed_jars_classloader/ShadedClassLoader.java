@@ -1,7 +1,9 @@
-package io.github.kale_ko.gradleshade;
+package io.github.kale_ko.gradleshade.embed_jars_classloader;
 
 import java.io.*;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,10 +11,11 @@ import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class ShadedClassLoader extends ClassLoader {
     public static boolean FIND_RESOURCES_RETURN_DIRECT = System.getProperty("gradleshade.resourceReturnDirect") != null ? Boolean.parseBoolean(System.getProperty("gradleshade.resourceReturnDirect")) : false;
-    public static boolean CATALOG_RECURSIVE = System.getProperty("gradleshade.recursive") != null ? Boolean.parseBoolean(System.getProperty("gradleshade.recursive")) : false;
+    public static boolean CATALOG_RECURSIVE = System.getProperty("gradleshade.recursive") != null ? Boolean.parseBoolean(System.getProperty("gradleshade.recursive")) : true;
 
     protected final @NotNull Path jarPath;
 
@@ -195,9 +198,8 @@ public class ShadedClassLoader extends ClassLoader {
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Override
-    protected URL findResource(String name) {
+    protected @Nullable URL findResource(String name) {
         {
             if (getParent() != null) {
                 URL resource = getParent().getResource(name);
@@ -207,22 +209,35 @@ public class ShadedClassLoader extends ClassLoader {
             }
         }
 
-        if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
-            return null;
-        }
+        if (!FIND_RESOURCES_RETURN_DIRECT) {
+            if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
+                return null;
+            }
 
-        try {
-            Path path = this.resourceCatalog.get(name).get(0);
+            try {
+                Path path = this.resourceCatalog.get(name).get(0);
 
-            return new URL("jar", "", -1, "file:" + path.toAbsolutePath() + "!/" + name);
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+                return new URI("jar", null, "", -1, "file:" + path.toAbsolutePath() + "!/" + name, null, null).toURL();
+            } catch (URISyntaxException | MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            if (!(this.extractedResourceCatalog.containsKey(name) && !this.extractedResourceCatalog.get(name).isEmpty())) {
+                return null;
+            }
+
+            try {
+                Path path = this.extractedResourceCatalog.get(name).get(0);
+
+                return path.toUri().toURL();
+            } catch (MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Override
-    protected Enumeration<URL> findResources(String name) {
+    protected @NotNull Enumeration<URL> findResources(String name) {
         try {
             if (getParent() != null) {
                 Enumeration<URL> resources = getParent().getResources(name);
@@ -233,20 +248,38 @@ public class ShadedClassLoader extends ClassLoader {
         } catch (IOException ignored) {
         }
 
-        if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
-            return null;
-        }
-
-        try {
-            List<URL> resources = new ArrayList<>();
-
-            for (Path path : this.resourceCatalog.get(name)) {
-                resources.add(new URL("jar", "", -1, "file:" + path.toAbsolutePath() + "!/" + name));
+        if (!FIND_RESOURCES_RETURN_DIRECT) {
+            if (!(this.resourceCatalog.containsKey(name) && !this.resourceCatalog.get(name).isEmpty())) {
+                return Collections.emptyEnumeration();
             }
 
-            return Collections.enumeration(resources);
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+            try {
+                List<URL> resources = new ArrayList<>();
+
+                for (Path path : this.resourceCatalog.get(name)) {
+                    resources.add(new URI("jar", null, "", -1, "file:" + path.toAbsolutePath() + "!/" + name, null, null).toURL());
+                }
+
+                return Collections.enumeration(resources);
+            } catch (URISyntaxException | MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            if (!(this.extractedResourceCatalog.containsKey(name) && !this.extractedResourceCatalog.get(name).isEmpty())) {
+                return Collections.emptyEnumeration();
+            }
+
+            try {
+                List<URL> resources = new ArrayList<>();
+
+                for (Path path : this.extractedResourceCatalog.get(name)) {
+                    resources.add(path.toUri().toURL());
+                }
+
+                return Collections.enumeration(resources);
+            } catch (MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

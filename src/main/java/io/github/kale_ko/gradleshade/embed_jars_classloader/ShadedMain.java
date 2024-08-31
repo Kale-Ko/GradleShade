@@ -1,4 +1,4 @@
-package io.github.kale_ko.gradleshade;
+package io.github.kale_ko.gradleshade.embed_jars_classloader;
 
 import java.io.File;
 import java.io.IOException;

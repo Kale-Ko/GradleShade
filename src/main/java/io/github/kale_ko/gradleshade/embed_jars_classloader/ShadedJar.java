@@ -1,8 +1,11 @@
-package io.github.kale_ko.gradleshade;
+package io.github.kale_ko.gradleshade.embed_jars_classloader;
 
+import io.github.kale_ko.gradleshade.ShadeExtension;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Properties;
 import org.gradle.api.Project;
 import org.gradle.api.file.CopySpec;
 import org.gradle.api.file.FileTree;
@@ -36,7 +39,7 @@ public abstract class ShadedJar extends Jar {
         this.shadedManifest.attributes(jarTask.getManifest().getAttributes());
 
         this.getManifest().attributes(jarTask.getManifest().getAttributes());
-        this.getManifest().getAttributes().put("Main-Class", "io.github.kale_ko.gradleshade.ShadedMain");
+        this.getManifest().getAttributes().put("Main-Class", "io.github.kale_ko.gradleshade.embed_jars_classloader.ShadedMain");
 
         this.getDestinationDirectory().set(jarTask.getDestinationDirectory().getOrNull());
 
@@ -52,11 +55,16 @@ public abstract class ShadedJar extends Jar {
         this.from(sourceSets.named("main").get().getOutput().getFiles());
 
         this.getMetaInf().from(this.shadedManifestFileTree());
+        this.getMetaInf().from(this.shadedPropertiesFileTree());
 
         CopySpec codeCopy = this.getRootSpec().addFirst().into("io/github/kale_ko/gradleshade");
-        codeCopy.from(this.classFiles());
+        codeCopy.from(this.classFilesFileTree());
 
         this.from(project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get().getResolvedConfiguration().getFiles());
+    }
+
+    private @NotNull ShadeExtension getSettings() {
+        return this.getProject().getExtensions().getByType(ShadeExtension.class);
     }
 
     public @NotNull Manifest getShadedManifest() {
@@ -78,38 +86,58 @@ public abstract class ShadedJar extends Jar {
     }
 
     private @NotNull FileTree shadedManifestFileTree() {
-        Cached<ManifestInternal> manifest = Cached.of(this::getShadedManifestInternal);
+        Cached<ManifestInternal> cachedShadedManifest = Cached.of(this::getShadedManifestInternal);
         OutputChangeListener outputChangeListener = this.getServices().get(OutputChangeListener.class);
 
         return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), "SHADED-MANIFEST.MF", (file) -> {
             outputChangeListener.invalidateCachesFor(List.of(file.getAbsolutePath()));
         }, (outputStream) -> {
-            manifest.get().writeTo(outputStream);
+            cachedShadedManifest.get().writeTo(outputStream);
         });
     }
 
-    private @NotNull FileTree classFiles() {
+    private @NotNull FileTree shadedPropertiesFileTree() {
+        OutputChangeListener outputChangeListener = this.getServices().get(OutputChangeListener.class);
+
+        return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), "shade.properties", (file) -> {
+            outputChangeListener.invalidateCachesFor(List.of(file.getAbsolutePath()));
+        }, (outputStream) -> {
+            Properties properties = new Properties();
+            properties.setProperty("mode", this.getSettings().getMode().get().toString());
+            properties.setProperty("recursiveExtract", Boolean.TRUE.equals(this.getSettings().getRecursiveExtract().get()) ? "true" : "false");
+            properties.setProperty("returnDirectUri", Boolean.TRUE.equals(this.getSettings().getReturnDirectUri().get()) ? "true" : "false");
+            try {
+                properties.store(outputStream, null);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private @NotNull FileTree classFilesFileTree() {
         FileTree tree = this.getServices().get(FileCollectionFactory.class).treeOf(List.of());
 
-        for (String clazz : List.of("ShadedMain.class", "ShadedClassLoader.class")) {
-            tree = tree.plus(this.classFile(clazz));
+        for (String clazz : this.getSettings().getMode().get().getFiles()) {
+            tree = tree.plus(this.classFileFileTree(clazz));
         }
 
         return tree;
     }
 
-    private @NotNull FileTree classFile(String clazz) {
+    private @NotNull FileTree classFileFileTree(String clazz) {
         return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), clazz, (file) -> {
         }, (outputStream) -> {
-            try (InputStream inputStream = this.getClass().getResourceAsStream("/io/github/kale_ko/gradleshade/" + clazz)) {
-                if (inputStream == null) {
+            try (InputStream rawInputStream = this.getClass().getResourceAsStream("/io/github/kale_ko/gradleshade/" + clazz)) {
+                if (rawInputStream == null) {
                     throw new RuntimeException("Missing resource " + clazz);
                 }
 
-                int read;
-                byte[] buf = new byte[4096];
-                while ((read = inputStream.read(buf)) != -1) {
-                    outputStream.write(buf, 0, read);
+                try (InputStream inputStream = new BufferedInputStream(rawInputStream)) {
+                    int read;
+                    byte[] buf = new byte[4096];
+                    while ((read = inputStream.read(buf)) != -1) {
+                        outputStream.write(buf, 0, read);
+                    }
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);

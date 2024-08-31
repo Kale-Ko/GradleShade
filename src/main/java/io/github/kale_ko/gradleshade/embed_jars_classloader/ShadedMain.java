@@ -7,6 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Properties;
 import java.util.jar.Manifest;
 
 public class ShadedMain {
@@ -20,10 +21,15 @@ public class ShadedMain {
 
         String mainClazzName = manifest.getMainAttributes().getValue("Main-Class");
 
+        Properties properties = new Properties();
+        try (InputStream manifestInputStream = ShadedMain.class.getResourceAsStream("/META-INF/shade.properties")) {
+            properties.load(manifestInputStream);
+        }
+
         ClassLoader classLoader;
         Path jarPath = new File(ShadedMain.class.getProtectionDomain().getCodeSource().getLocation().getFile()).toPath();
         if (!Files.isDirectory(jarPath)) {
-            classLoader = new ShadedClassLoader(jarPath);
+            classLoader = new ShadedClassLoader(jarPath, Boolean.parseBoolean(properties.getProperty("recursiveExtract")), Boolean.parseBoolean(properties.getProperty("recursiveExtract")));
             ((ShadedClassLoader) classLoader).catalogAll();
         } else {
             System.err.println("Development environment in use, not loading shaded jars.");

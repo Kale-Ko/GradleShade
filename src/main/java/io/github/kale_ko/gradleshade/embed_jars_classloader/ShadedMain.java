@@ -32,7 +32,7 @@ public class ShadedMain {
             classLoader = new ShadedClassLoader(jarPath, Boolean.parseBoolean(properties.getProperty("recursiveExtract")), Boolean.parseBoolean(properties.getProperty("recursiveExtract")));
             ((ShadedClassLoader) classLoader).catalogAll();
         } else {
-            System.err.println("Development environment in use, not loading shaded jars.");
+            System.err.println("Development environment in use, not loading shaded jars. It is recommended you run your main class directly.");
             classLoader = ShadedMain.class.getClassLoader();
         }
 

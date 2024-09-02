@@ -20,7 +20,7 @@ public class GradleShadePlugin implements Plugin<Project> {
             shadeExtension.getMode().set(ShadeMode.EMBED_JARS_CLASSLOADER);
         }
         if (!shadeExtension.getRecursiveExtract().isPresent()) {
-            shadeExtension.getRecursiveExtract().set(true);
+            shadeExtension.getRecursiveExtract().set(false);
         }
         if (!shadeExtension.getReturnDirectUri().isPresent()) {
             shadeExtension.getReturnDirectUri().set(false);

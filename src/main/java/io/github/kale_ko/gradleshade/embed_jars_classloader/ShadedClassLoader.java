@@ -47,7 +47,7 @@ public class ShadedClassLoader extends ClassLoader {
         Files.delete(tempTempDir);
 
         if (!Files.exists(extractDir)) {
-            this.catalog(this.jarPath, extractDir, true, 0);
+            this.catalog(this.jarPath, extractDir, 0);
 
             this.saveCatalog(extractDir);
         } else {
@@ -55,7 +55,7 @@ public class ShadedClassLoader extends ClassLoader {
         }
     }
 
-    private synchronized void catalog(Path parentJar, Path extractDir, boolean copyNeeded, int depth) throws IOException {
+    private synchronized void catalog(Path parentJar, Path extractDir, int depth) throws IOException {
         List<Path> jars = new ArrayList<>();
 
         Path localExtractDir = extractDir.resolve(parentJar.getFileName());
@@ -73,13 +73,11 @@ public class ShadedClassLoader extends ClassLoader {
                         jars.add(file);
                     }
 
-                    if (copyNeeded) {
-                        try (OutputStream fileOutputStream = new BufferedOutputStream(Files.newOutputStream(file))) {
-                            int read;
-                            byte[] buf = new byte[4096];
-                            while ((read = jarInputStream.read(buf)) != -1) {
-                                fileOutputStream.write(buf, 0, read);
-                            }
+                    try (OutputStream fileOutputStream = new BufferedOutputStream(Files.newOutputStream(file))) {
+                        int read;
+                        byte[] buf = new byte[4096];
+                        while ((read = jarInputStream.read(buf)) != -1) {
+                            fileOutputStream.write(buf, 0, read);
                         }
                     }
 
@@ -98,7 +96,7 @@ public class ShadedClassLoader extends ClassLoader {
 
         if (this.recursiveExtract || depth == 0) {
             for (Path jar : jars) {
-                this.catalog(jar, extractDir, copyNeeded, depth + 1);
+                this.catalog(jar, extractDir, depth + 1);
             }
         }
     }

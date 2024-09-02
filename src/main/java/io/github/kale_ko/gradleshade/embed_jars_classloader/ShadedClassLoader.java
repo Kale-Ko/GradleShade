@@ -2,8 +2,6 @@ package io.github.kale_ko.gradleshade.embed_jars_classloader;
 
 import java.io.*;
 import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -218,8 +216,8 @@ public class ShadedClassLoader extends ClassLoader {
             try {
                 Path path = this.resourceCatalog.get(name).get(0);
 
-                return new URI("jar", null, "", -1, "file:" + path.toAbsolutePath() + "!/" + name, null, null).toURL();
-            } catch (URISyntaxException | MalformedURLException e) {
+                return new URL("jar", "", -1, path.toUri().toURL() + "!/" + name);
+            } catch (MalformedURLException e) {
                 throw new RuntimeException(e);
             }
         } else {
@@ -258,11 +256,11 @@ public class ShadedClassLoader extends ClassLoader {
                 List<URL> resources = new ArrayList<>();
 
                 for (Path path : this.resourceCatalog.get(name)) {
-                    resources.add(new URI("jar", null, "", -1, "file:" + path.toAbsolutePath() + "!/" + name, null, null).toURL());
+                    resources.add(new URL("jar", "", -1, path.toUri().toURL() + "!/" + name));
                 }
 
                 return Collections.enumeration(resources);
-            } catch (URISyntaxException | MalformedURLException e) {
+            } catch (MalformedURLException e) {
                 throw new RuntimeException(e);
             }
         } else {

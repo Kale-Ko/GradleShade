@@ -1,6 +1,5 @@
-package io.github.kale_ko.gradleshade.embed_jars_classloader;
+package io.github.kale_ko.gradleshade;
 
-import io.github.kale_ko.gradleshade.ShadeExtension;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +29,8 @@ public abstract class ShadedJar extends Jar {
     public ShadedJar() {
         super();
 
+        ShadeMode mode = this.getSettings().getMode().get();
+
         Project project = this.getProject();
         TaskProvider<Jar> jarTaskProvider = project.getTasks().named(JavaPlugin.JAR_TASK_NAME, Jar.class);
         this.dependsOn(jarTaskProvider);
@@ -39,7 +40,11 @@ public abstract class ShadedJar extends Jar {
         this.shadedManifest.attributes(jarTask.getManifest().getAttributes());
 
         this.getManifest().attributes(jarTask.getManifest().getAttributes());
-        this.getManifest().getAttributes().put("Main-Class", "io.github.kale_ko.gradleshade.embed_jars_classloader.ShadedMain");
+        if (mode == ShadeMode.EMBED_JARS_CLASSLOADER) {
+            this.getManifest().getAttributes().put("Main-Class", "io.github.kale_ko.gradleshade.embed_jars_classloader.ShadedMain");
+        } else if (mode == ShadeMode.EMBED_JARS_SUBPROCESS) {
+            this.getManifest().getAttributes().put("Main-Class", "io.github.kale_ko.gradleshade.embed_jars_subprocess.ShadedMain");
+        }
 
         this.getDestinationDirectory().set(jarTask.getDestinationDirectory().getOrNull());
 
@@ -57,8 +62,8 @@ public abstract class ShadedJar extends Jar {
         this.getMetaInf().from(this.shadedManifestFileTree());
         this.getMetaInf().from(this.shadedPropertiesFileTree());
 
-        CopySpec codeCopy = this.getRootSpec().addFirst().into("io/github/kale_ko/gradleshade");
-        codeCopy.from(this.classFilesFileTree());
+        CopySpec codeCopy = this.getRootSpec().addFirst().into("io/github/kale_ko/gradleshade/");
+        codeCopy.from(this.classFilesFileTree(mode));
 
         this.from(project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get().getResolvedConfiguration().getFiles());
     }
@@ -99,13 +104,21 @@ public abstract class ShadedJar extends Jar {
     private @NotNull FileTree shadedPropertiesFileTree() {
         OutputChangeListener outputChangeListener = this.getServices().get(OutputChangeListener.class);
 
-        return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), "shade.properties", (file) -> {
+        return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), "shade.properties", file -> {
             outputChangeListener.invalidateCachesFor(List.of(file.getAbsolutePath()));
-        }, (outputStream) -> {
+        }, outputStream -> {
+            ShadeMode mode = this.getSettings().getMode().get();
+
             Properties properties = new Properties();
-            properties.setProperty("mode", this.getSettings().getMode().get().toString());
-            properties.setProperty("recursiveExtract", Boolean.TRUE.equals(this.getSettings().getRecursiveExtract().get()) ? "true" : "false");
-            properties.setProperty("returnDirectUri", Boolean.TRUE.equals(this.getSettings().getReturnDirectUri().get()) ? "true" : "false");
+            properties.setProperty("mode", mode.toString());
+
+            if (mode == ShadeMode.EMBED_JARS_CLASSLOADER || mode == ShadeMode.EMBED_JARS_SUBPROCESS) {
+                properties.setProperty("recursiveExtract", Boolean.TRUE.equals(this.getSettings().getRecursiveExtract().get()) ? "true" : "false");
+            }
+            if (mode == ShadeMode.EMBED_JARS_CLASSLOADER) {
+                properties.setProperty("returnDirectUri", Boolean.TRUE.equals(this.getSettings().getReturnDirectUri().get()) ? "true" : "false");
+            }
+
             try {
                 properties.store(outputStream, null);
             } catch (IOException e) {
@@ -114,10 +127,10 @@ public abstract class ShadedJar extends Jar {
         });
     }
 
-    private @NotNull FileTree classFilesFileTree() {
+    private @NotNull FileTree classFilesFileTree(@NotNull ShadeMode mode) {
         FileTree tree = this.getServices().get(FileCollectionFactory.class).treeOf(List.of());
 
-        for (String clazz : this.getSettings().getMode().get().getFiles()) {
+        for (String clazz : mode.getFiles()) {
             tree = tree.plus(this.classFileFileTree(clazz));
         }
 
@@ -125,8 +138,8 @@ public abstract class ShadedJar extends Jar {
     }
 
     private @NotNull FileTree classFileFileTree(String clazz) {
-        return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), clazz, (file) -> {
-        }, (outputStream) -> {
+        return this.getServices().get(FileCollectionFactory.class).generated(this.getTemporaryDirFactory(), clazz, file -> {
+        }, outputStream -> {
             try (InputStream rawInputStream = this.getClass().getResourceAsStream("/io/github/kale_ko/gradleshade/" + clazz)) {
                 if (rawInputStream == null) {
                     throw new RuntimeException("Missing resource " + clazz);

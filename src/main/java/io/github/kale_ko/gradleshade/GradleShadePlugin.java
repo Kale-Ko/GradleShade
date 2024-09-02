@@ -15,6 +15,17 @@ public class GradleShadePlugin implements Plugin<Project> {
             throw new RuntimeException("Plugin \"java\" must be applied before \"gradleshade\"");
         }
 
+        ShadeExtension shadeExtension = project.getExtensions().create("shade", ShadeExtension.class);
+        if (!shadeExtension.getMode().isPresent()) {
+            shadeExtension.getMode().set(ShadeMode.EMBED_JARS_CLASSLOADER);
+        }
+        if (!shadeExtension.getRecursiveExtract().isPresent()) {
+            shadeExtension.getRecursiveExtract().set(true);
+        }
+        if (!shadeExtension.getReturnDirectUri().isPresent()) {
+            shadeExtension.getReturnDirectUri().set(false);
+        }
+
         TaskProvider<ShadedJar> shadedJarTaskProvider = project.getTasks().register("shadedJar", ShadedJar.class);
         project.getTasks().named("build").get().dependsOn(shadedJarTaskProvider);
     }

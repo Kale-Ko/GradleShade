@@ -65,15 +65,6 @@ publishing {
                     password = System.getenv("MAVEN_TOKEN")
                 }
             }
-            maven {
-                name = "GitHub-Packages-Release"
-                url = "https://maven.pkg.github.com/Kale-Ko/GradleShade/"
-
-                credentials {
-                    username = System.getenv("GH_PACKAGES_USER")
-                    password = System.getenv("GH_PACKAGES_TOKEN")
-                }
-            }
         }
     }
 }

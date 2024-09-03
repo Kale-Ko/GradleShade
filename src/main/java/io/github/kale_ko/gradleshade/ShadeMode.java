@@ -5,7 +5,8 @@ import org.jetbrains.annotations.NotNull;
 
 public enum ShadeMode {
     EMBED_JARS_CLASSLOADER(List.of("embed_jars_classloader/ShadedMain.class", "embed_jars_classloader/ShadedClassLoader.class")),
-    EMBED_JARS_SUBPROCESS(List.of("embed_jars_subprocess/ShadedMain.class", "embed_jars_subprocess/ShadedJarLoader.class"));
+    EMBED_JARS_SUBPROCESS(List.of("embed_jars_subprocess/ShadedMain.class", "embed_jars_subprocess/ShadedJarLoader.class")),
+    EMBED_CLASSES(List.of());
 
     private final @NotNull List<String> files;
 

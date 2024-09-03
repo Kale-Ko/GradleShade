@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import org.gradle.api.Project;
 import org.gradle.api.file.CopySpec;
 import org.gradle.api.file.FileTree;
@@ -59,13 +60,28 @@ public abstract class ShadedJar extends Jar {
         SourceSetContainer sourceSets = project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets();
         this.from(sourceSets.named("main").get().getOutput().getFiles());
 
-        this.getMetaInf().from(this.shadedManifestFileTree());
+        if (mode == ShadeMode.EMBED_JARS_CLASSLOADER || mode == ShadeMode.EMBED_JARS_SUBPROCESS) {
+            this.getMetaInf().from(this.shadedManifestFileTree());
+        }
         this.getMetaInf().from(this.shadedPropertiesFileTree());
 
         CopySpec codeCopy = this.getRootSpec().addFirst().into("io/github/kale_ko/gradleshade/");
         codeCopy.from(this.classFilesFileTree(mode));
 
-        this.from(project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get().getResolvedConfiguration().getFiles());
+        if (mode == ShadeMode.EMBED_JARS_CLASSLOADER || mode == ShadeMode.EMBED_JARS_SUBPROCESS) {
+            this.from(project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get().getResolvedConfiguration().getFiles());
+        }
+        if (mode == ShadeMode.EMBED_CLASSES) {
+            this.from(project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get().getResolvedConfiguration().getFiles().stream().map(file -> {
+                return project.zipTree(file).matching(match -> {
+                    match.exclude("META-INF/MANIFEST.MF");
+                    match.exclude("META-INF/INDEX.LIST");
+                    match.exclude("META-INF/**/*.SF");
+                    match.exclude("META-INF/**/*.DSA");
+                    match.exclude("META-INF/**/*.RSA");
+                });
+            }).collect(Collectors.toList()));
+        }
     }
 
     private @NotNull ShadeExtension getSettings() {

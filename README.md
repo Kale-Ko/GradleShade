@@ -27,7 +27,7 @@ shade {
 pluginManagement {
     repositories {
         maven {
-            url "https://maven.kaleko.dev/public-release/"
+            url "https://maven.kaleko.dev/public-snapshot/"
         }
         gradlePluginPortal()
     }

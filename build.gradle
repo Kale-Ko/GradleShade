@@ -2,13 +2,21 @@ plugins {
     id "java"
     id "java-gradle-plugin"
     id "maven-publish"
-    id "com.gradle.plugin-publish" version "1.2.2"
 }
 
 group = "io.github.kale_ko"
 version = project_version
 
 repositories {
+    maven {
+        name = "Kales-Maven"
+        url = "https://maven.kaleko.dev/public-snapshot/"
+
+        credentials {
+            username = System.getenv("MAVEN_USER")
+            password = System.getenv("MAVEN_TOKEN")
+        }
+    }
     mavenCentral()
 }
 
@@ -20,6 +28,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(java_version)
     }
+
+    withSourcesJar()
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -35,8 +45,8 @@ gradlePlugin {
             id = "io.github.kale_ko.gradleshade"
             displayName = "GradleShade"
 
-            description = "A plugin that automatically adds all dependencies to a jar and loads them for use"
-            tags.addAll("jar", "java", "kotlin", "shade", "shaded", "shaded-jar", "fat", "fat-jar")
+            description = "A Gradle extension that automatically shades/shadows dependencies into a jar for standalone execution using a few different methods."
+            tags.addAll("jar", "java", "kotlin", "shade", "shaded", "shaded-jar", "shadow", "shadowed", "shadowed-jar", "fat", "fat-jar")
 
             implementationClass = "io.github.kale_ko.gradleshade.GradleShadePlugin"
         }

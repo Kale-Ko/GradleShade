@@ -7,9 +7,10 @@ GradleShade is a Gradle extension that automatically shades/shadows dependencies
 ## Example
 
 ```groovy
+// build.gradle
 plugins {
     id "java"
-    id "io.github.kale_ko.gradleshade" version "1.2.0"
+    id "io.github.kale_ko.gradleshade" version "1.2.1"
 }
 
 ...
@@ -18,6 +19,18 @@ import io.github.kale_ko.gradleshade.ShadeMode
 
 shade {
     mode = ShadeMode.EMBED_JARS_CLASSLOADER
+}
+```
+
+```groovy
+// settings.gradle
+pluginManagement {
+    repositories {
+        maven {
+            url "https://maven.kaleko.dev/public-release/"
+        }
+        gradlePluginPortal()
+    }
 }
 ```
 

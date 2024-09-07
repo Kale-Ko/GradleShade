@@ -34,7 +34,7 @@ jobs:
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
 
       - name: Publish
-        run: ./gradlew publish publishPlugins
+        run: ./gradlew publish
         env:
           MAVEN_TYPE: release
           MAVEN_USER: ${{ secrets.MAVEN_USER }}
